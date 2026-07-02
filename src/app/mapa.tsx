@@ -16,7 +16,7 @@ export default function MapaScreen() {
         <Text style={styles.cardTitle}>¿A dónde vamos?</Text>
         <Text style={styles.cardSubtitle}>Toca el mapa para elegir tu destino</Text>
 
-        <TouchableOpacity style={styles.btn}>
+        <TouchableOpacity style={styles.btn} onPress={() => router.push('/pago')}>
           <Text style={styles.btnText}>Solicitar MotoYa 🛺</Text>
         </TouchableOpacity>
 
