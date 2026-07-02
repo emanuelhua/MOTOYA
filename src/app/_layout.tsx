@@ -13,6 +13,9 @@ export default function RootLayout() {
       <Stack.Screen name="perfil" />
       <Stack.Screen name="pago" />
       <Stack.Screen name="viaje" />
+      <Stack.Screen name="splash" />
+      <Stack.Screen name="notificaciones" />
+      <Stack.Screen name="editar-perfil" />
     </Stack>
   );
 }
