@@ -1,8 +1,31 @@
 import { useRouter } from 'expo-router';
-import { StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { signInWithEmailAndPassword } from 'firebase/auth';
+import { useState } from 'react';
+import { ActivityIndicator, Alert, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { auth } from '../firebaseConfig';
 
 export default function LoginScreen() {
   const router = useRouter();
+  const [correo, setCorreo] = useState('');
+  const [password, setPassword] = useState('');
+  const [cargando, setCargando] = useState(false);
+
+  const handleLogin = async () => {
+    if (!correo || !password) {
+      Alert.alert('Faltan datos', 'Ingresa tu correo y contraseña');
+      return;
+    }
+
+    setCargando(true);
+    try {
+      await signInWithEmailAndPassword(auth, correo, password);
+      router.push('/mapa');
+    } catch (error: any) {
+      Alert.alert('Error al iniciar sesión', 'Correo o contraseña incorrectos');
+    } finally {
+      setCargando(false);
+    }
+  };
 
   return (
     <View style={styles.container}>
@@ -15,15 +38,23 @@ export default function LoginScreen() {
           placeholder="Correo electrónico"
           keyboardType="email-address"
           autoCapitalize="none"
+          value={correo}
+          onChangeText={setCorreo}
         />
         <TextInput
           style={styles.input}
           placeholder="Contraseña"
           secureTextEntry
+          value={password}
+          onChangeText={setPassword}
         />
 
-        <TouchableOpacity style={styles.btn} onPress={() => router.push('/mapa')}>
-         <Text style={styles.btnText}>Ingresar</Text>
+        <TouchableOpacity style={styles.btn} onPress={handleLogin} disabled={cargando}>
+          {cargando ? (
+            <ActivityIndicator color="#FFFFFF" />
+          ) : (
+            <Text style={styles.btnText}>Ingresar</Text>
+          )}
         </TouchableOpacity>
 
         <TouchableOpacity onPress={() => router.push('/registro')}>
