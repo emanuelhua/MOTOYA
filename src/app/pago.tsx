@@ -72,7 +72,7 @@ export default function PagoScreen() {
 
       <TouchableOpacity
         style={styles.btnConfirmar}
-        onPress={() => router.push('/calificacion')}
+        onPress={() => router.push('/viaje')}
       >
         <Text style={styles.btnConfirmarText}>Confirmar y solicitar</Text>
       </TouchableOpacity>

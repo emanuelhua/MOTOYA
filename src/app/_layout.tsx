@@ -12,6 +12,7 @@ export default function RootLayout() {
       <Stack.Screen name="historial" />
       <Stack.Screen name="perfil" />
       <Stack.Screen name="pago" />
+      <Stack.Screen name="viaje" />
     </Stack>
   );
 }
