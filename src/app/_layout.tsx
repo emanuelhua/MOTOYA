@@ -6,9 +6,11 @@ export default function RootLayout() {
       <Stack.Screen name="index" />
       <Stack.Screen name="login" />
       <Stack.Screen name="registro" />
+      <Stack.Screen name="mapa" />
       <Stack.Screen name="conductor" />
       <Stack.Screen name="calificacion" />
       <Stack.Screen name="historial" />
+      <Stack.Screen name="perfil" />
     </Stack>
   );
 }

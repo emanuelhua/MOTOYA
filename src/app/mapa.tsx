@@ -24,6 +24,14 @@ export default function MapaScreen() {
           <Text style={styles.link}>Historial</Text>
         </TouchableOpacity>
 
+        <TouchableOpacity onPress={() => router.push('/mapa')}>
+          <Text style={styles.link}>Mapa</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity onPress={() => router.push('/perfil')}>
+          <Text style={styles.link}>Perfil</Text>
+        </TouchableOpacity>
+
         <TouchableOpacity onPress={() => router.back()}>
           <Text style={styles.link}>Volver</Text>
         </TouchableOpacity>
