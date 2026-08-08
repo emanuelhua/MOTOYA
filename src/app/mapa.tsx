@@ -1,15 +1,33 @@
 import { useRouter } from 'expo-router';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useLocation } from '../hooks/useLocation';
 
 export default function MapaScreen() {
   const router = useRouter();
+  const { location, errorMsg, loading } = useLocation();
 
   return (
     <View style={styles.container}>
       <View style={styles.mapPlaceholder}>
         <Text style={styles.mapEmoji}>🗺️</Text>
         <Text style={styles.mapText}>Mapa de Iquitos</Text>
-        <Text style={styles.mapSubtext}>📍 Tu ubicación detectada</Text>
+
+        {loading && (
+          <>
+            <ActivityIndicator color="#F97316" />
+            <Text style={styles.mapSubtext}>Obteniendo tu ubicacion...</Text>
+          </>
+        )}
+
+        {!loading && location && (
+          <Text style={styles.mapSubtext}>
+            📍 Lat: {location.latitude.toFixed(4)}, Lng: {location.longitude.toFixed(4)}
+          </Text>
+        )}
+
+        {!loading && errorMsg && (
+          <Text style={styles.mapSubtext}>⚠️ {errorMsg}</Text>
+        )}
       </View>
 
       <View style={styles.bottomCard}>

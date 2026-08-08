@@ -1,73 +1,98 @@
 import { useRouter } from 'expo-router';
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useState } from 'react';
+import { Image, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { useProfileImage } from '../hooks/useProfileImage';
 
-export default function PerfilScreen() {
+export default function EditarPerfilScreen() {
   const router = useRouter();
+  const [nombre, setNombre] = useState('Jesus Emanuel');
+  const [correo, setCorreo] = useState('jesus@gmail.com');
+  const [telefono, setTelefono] = useState('987654321');
+  const [mostrarOpciones, setMostrarOpciones] = useState(false);
+  const { imageUri, pickFromGallery, takePhoto } = useProfileImage();
 
   return (
     <ScrollView style={styles.container}>
       <View style={styles.header}>
-        <View style={styles.avatar}>
-          <Text style={styles.avatarText}>JE</Text>
-        </View>
-        <Text style={styles.nombre}>Jesus Emanuel</Text>
-        <Text style={styles.correo}>jesus@gmail.com</Text>
-        <Text style={styles.telefono}>📱 +51 987 654 321</Text>
+        {imageUri ? (
+          <Image source={{ uri: imageUri }} style={styles.avatarImg} />
+        ) : (
+          <View style={styles.avatar}>
+            <Text style={styles.avatarText}>JE</Text>
+          </View>
+        )}
+
+        {!mostrarOpciones ? (
+          <TouchableOpacity onPress={() => setMostrarOpciones(true)}>
+            <Text style={styles.cambiarFoto}>Cambiar foto</Text>
+          </TouchableOpacity>
+        ) : (
+          <View style={styles.opcionesFoto}>
+            <TouchableOpacity
+              style={styles.opcionBtn}
+              onPress={() => {
+                takePhoto();
+                setMostrarOpciones(false);
+              }}
+            >
+              <Text style={styles.opcionTexto}>📷 Cámara</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.opcionBtn}
+              onPress={() => {
+                pickFromGallery();
+                setMostrarOpciones(false);
+              }}
+            >
+              <Text style={styles.opcionTexto}>🖼️ Galería</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => setMostrarOpciones(false)}>
+              <Text style={styles.opcionCancelar}>Cancelar</Text>
+            </TouchableOpacity>
+          </View>
+        )}
       </View>
 
-      <View style={styles.statsRow}>
-        <View style={styles.statCard}>
-          <Text style={styles.statNum}>24</Text>
-          <Text style={styles.statLabel}>Viajes</Text>
+      <View style={styles.form}>
+        <View style={styles.campo}>
+          <Text style={styles.label}>Nombre completo</Text>
+          <TextInput
+            style={styles.input}
+            value={nombre}
+            onChangeText={setNombre}
+          />
         </View>
-        <View style={styles.statCard}>
-          <Text style={styles.statNum}>4.8</Text>
-          <Text style={styles.statLabel}>Calificación</Text>
+
+        <View style={styles.campo}>
+          <Text style={styles.label}>Correo electrónico</Text>
+          <TextInput
+            style={styles.input}
+            value={correo}
+            onChangeText={setCorreo}
+            keyboardType="email-address"
+            autoCapitalize="none"
+          />
         </View>
-        <View style={styles.statCard}>
-          <Text style={styles.statNum}>S/68</Text>
-          <Text style={styles.statLabel}>Gastado</Text>
+
+        <View style={styles.campo}>
+          <Text style={styles.label}>Teléfono</Text>
+          <TextInput
+            style={styles.input}
+            value={telefono}
+            onChangeText={setTelefono}
+            keyboardType="phone-pad"
+          />
         </View>
-      </View>
-
-      <View style={styles.menu}>
-        <TouchableOpacity style={styles.menuItem} onPress={() => router.push('/historial')}>
-          <Text style={styles.menuEmoji}>🗒️</Text>
-          <Text style={styles.menuTexto}>Mis viajes</Text>
-          <Text style={styles.menuArrow}>›</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity style={styles.menuItem}>
-          <Text style={styles.menuEmoji}>🔔</Text>
-          <Text style={styles.menuTexto}>Notificaciones</Text>
-          <Text style={styles.menuArrow}>›</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity style={styles.menuItem}>
-          <Text style={styles.menuEmoji}>🔒</Text>
-          <Text style={styles.menuTexto}>Seguridad</Text>
-          <Text style={styles.menuArrow}>›</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity style={styles.menuItem} onPress={() => router.push('/notificaciones')}>
-          <Text style={styles.menuEmoji}>🔔</Text>
-          <Text style={styles.menuTexto}>Notificaciones</Text>
-          <Text style={styles.menuArrow}>›</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity style={styles.menuItem}>
-          <Text style={styles.menuEmoji}>❓</Text>
-          <Text style={styles.menuTexto}>Ayuda</Text>
-          <Text style={styles.menuArrow}>›</Text>
-        </TouchableOpacity>
 
         <TouchableOpacity 
-          style={[styles.menuItem, styles.menuItemRojo]}
-          onPress={() => router.push('/')}
+          style={styles.btnGuardar}
+          onPress={() => router.back()}
         >
-          <Text style={styles.menuEmoji}>🚪</Text>
-          <Text style={styles.menuTextoRojo}>Cerrar sesión</Text>
-          <Text style={styles.menuArrow}>›</Text>
+          <Text style={styles.btnGuardarText}>Guardar cambios</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity onPress={() => router.back()}>
+          <Text style={styles.link}>Cancelar</Text>
         </TouchableOpacity>
       </View>
     </ScrollView>
@@ -80,95 +105,95 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
   },
   header: {
-    backgroundColor: '#F97316',
-    padding: 32,
     alignItems: 'center',
-    gap: 8,
-  },
-  avatar: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: '#FFFFFF',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  avatarText: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#F97316',
-  },
-  nombre: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
-  },
-  correo: {
-    fontSize: 14,
-    color: '#FED7AA',
-  },
-  telefono: {
-    fontSize: 14,
-    color: '#FED7AA',
-  },
-  statsRow: {
-    flexDirection: 'row',
-    padding: 24,
+    paddingVertical: 32,
     gap: 12,
   },
-  statCard: {
-    flex: 1,
-    backgroundColor: '#F9FAFB',
-    borderRadius: 12,
-    padding: 16,
+  avatar: {
+    width: 90,
+    height: 90,
+    borderRadius: 45,
+    backgroundColor: '#FFF7ED',
+    justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderWidth: 2,
+    borderColor: '#F97316',
   },
-  statNum: {
-    fontSize: 22,
+  avatarImg: {
+    width: 90,
+    height: 90,
+    borderRadius: 45,
+    borderWidth: 2,
+    borderColor: '#F97316',
+  },
+  avatarText: {
+    fontSize: 32,
     fontWeight: 'bold',
     color: '#F97316',
   },
-  statLabel: {
-    fontSize: 12,
-    color: '#6B7280',
-    marginTop: 4,
+  cambiarFoto: {
+    color: '#F97316',
+    fontSize: 14,
+    fontWeight: '600',
   },
-  menu: {
-    paddingHorizontal: 24,
-    gap: 8,
-  },
-  menuItem: {
-    flexDirection: 'row',
+  opcionesFoto: {
     alignItems: 'center',
-    padding: 16,
+    gap: 8,
     backgroundColor: '#F9FAFB',
+    padding: 12,
     borderRadius: 12,
     borderWidth: 1,
     borderColor: '#E5E7EB',
   },
-  menuItemRojo: {
-    borderColor: '#FCA5A5',
-    backgroundColor: '#FFF5F5',
+  opcionBtn: {
+    paddingVertical: 6,
   },
-  menuEmoji: {
-    fontSize: 20,
-    marginRight: 12,
-  },
-  menuTexto: {
-    flex: 1,
-    fontSize: 16,
+  opcionTexto: {
+    fontSize: 15,
     color: '#374151',
+    fontWeight: '600',
   },
-  menuTextoRojo: {
-    flex: 1,
-    fontSize: 16,
-    color: '#DC2626',
-  },
-  menuArrow: {
-    fontSize: 20,
+  opcionCancelar: {
+    fontSize: 13,
     color: '#9CA3AF',
+    marginTop: 4,
+  },
+  form: {
+    paddingHorizontal: 24,
+    gap: 16,
+  },
+  campo: {
+    gap: 6,
+  },
+  label: {
+    fontSize: 14,
+    color: '#6B7280',
+    fontWeight: '600',
+  },
+  input: {
+    borderWidth: 1,
+    borderColor: '#D1D5DB',
+    borderRadius: 12,
+    padding: 14,
+    fontSize: 16,
+  },
+  btnGuardar: {
+    backgroundColor: '#F97316',
+    padding: 16,
+    borderRadius: 12,
+    alignItems: 'center',
+    marginTop: 12,
+  },
+  btnGuardarText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  link: {
+    color: '#6B7280',
+    textAlign: 'center',
+    fontSize: 15,
+    marginTop: 8,
+    marginBottom: 24,
   },
 });
