@@ -1,50 +1,131 @@
-import { useRouter } from 'expo-router';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { doc, onSnapshot, updateDoc } from 'firebase/firestore';
+import { useEffect, useState } from 'react';
+import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { db } from '../firebaseConfig';
+
+interface Viaje {
+  conductorNombre: string;
+  conductorPlaca: string;
+  conductorCalificacion: number;
+  destino: string;
+  tarifa: number;
+  estado: string;
+}
 
 export default function ViajeScreen() {
   const router = useRouter();
+  const { id } = useLocalSearchParams<{ id: string }>();
+  const [viaje, setViaje] = useState<Viaje | null>(null);
+  const [cargando, setCargando] = useState(true);
+  const [finalizando, setFinalizando] = useState(false);
+
+  useEffect(() => {
+    if (!id) return;
+
+    const unsubscribe = onSnapshot(doc(db, 'viajes', id), (snapshot) => {
+      if (snapshot.exists()) {
+        setViaje(snapshot.data() as Viaje);
+      }
+      setCargando(false);
+    });
+
+    return () => unsubscribe();
+  }, [id]);
+
+  const handleFinalizar = async () => {
+    if (!id || !viaje) return;
+    setFinalizando(true);
+    try {
+      await updateDoc(doc(db, 'viajes', id), { estado: 'completado' });
+      router.push(`/calificacion?id=${id}`);
+    } finally {
+      setFinalizando(false);
+    }
+  };
+
+  if (cargando) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator color="#F97316" size="large" />
+      </View>
+    );
+  }
+
+  if (!viaje) {
+    return (
+      <View style={styles.loadingContainer}>
+        <Text>No se encontro el viaje</Text>
+      </View>
+    );
+  }
+
+  if (viaje.estado === 'cancelado') {
+    return (
+      <View style={styles.loadingContainer}>
+        <Text style={styles.mapEmoji}>😕</Text>
+        <Text style={styles.mapText}>No hay conductores disponibles</Text>
+        <TouchableOpacity style={styles.btnFinalizar} onPress={() => router.push('/mapa')}>
+          <Text style={styles.btnFinalizarText}>Volver al mapa</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
+  if (viaje.estado === 'pendiente') {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator color="#F97316" size="large" />
+        <Text style={styles.mapText}>Esperando que un conductor acepte...</Text>
+        <Text style={styles.mapSubtext}>Conductor asignado: {viaje.conductorNombre}</Text>
+      </View>
+    );
+  }
+
+  const iniciales = viaje.conductorNombre
+    .split(' ')
+    .map((p) => p[0])
+    .join('')
+    .slice(0, 2)
+    .toUpperCase();
 
   return (
     <View style={styles.container}>
       <View style={styles.mapPlaceholder}>
         <Text style={styles.mapEmoji}>🛺</Text>
         <Text style={styles.mapText}>Tu conductor va en camino</Text>
-        <Text style={styles.mapSubtext}>Llegada estimada: 4 min</Text>
+        <Text style={styles.mapSubtext}>Destino: {viaje.destino}</Text>
       </View>
 
       <View style={styles.bottomCard}>
         <View style={styles.conductorRow}>
           <View style={styles.avatar}>
-            <Text style={styles.avatarText}>CQ</Text>
+            <Text style={styles.avatarText}>{iniciales}</Text>
           </View>
           <View style={styles.conductorInfo}>
-            <Text style={styles.conductorNombre}>Carlos Quispe</Text>
-            <Text style={styles.conductorDetalle}>Mototaxi • Placa IQ-1234</Text>
+            <Text style={styles.conductorNombre}>{viaje.conductorNombre}</Text>
+            <Text style={styles.conductorDetalle}>Mototaxi • Placa {viaje.conductorPlaca}</Text>
           </View>
-          <Text style={styles.calificacion}>⭐ 4.9</Text>
+          <Text style={styles.calificacion}>⭐ {viaje.conductorCalificacion.toFixed(1)}</Text>
         </View>
 
         <View style={styles.divider} />
 
         <View style={styles.estadoRow}>
-          <Text style={styles.estadoEmoji}>📍</Text>
-          <Text style={styles.estadoTexto}>El conductor está a 500m de tu ubicación</Text>
-        </View>
-
-        <View style={styles.botonesRow}>
-          <TouchableOpacity style={styles.btnLlamar}>
-            <Text style={styles.btnLlamarText}>📞 Llamar</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.btnMensaje}>
-            <Text style={styles.btnMensajeText}>💬 Mensaje</Text>
-          </TouchableOpacity>
+          <Text style={styles.estadoEmoji}>💵</Text>
+          <Text style={styles.estadoTexto}>Tarifa acordada: S/ {viaje.tarifa.toFixed(2)}</Text>
         </View>
 
         <TouchableOpacity
           style={styles.btnFinalizar}
-          onPress={() => router.push('/pago')}
+          onPress={handleFinalizar}
+          disabled={finalizando}
         >
-          <Text style={styles.btnFinalizarText}>Simular llegada</Text>
+          {finalizando ? (
+            <ActivityIndicator color="#FFFFFF" />
+          ) : (
+            <Text style={styles.btnFinalizarText}>Finalizar viaje</Text>
+          )}
         </TouchableOpacity>
       </View>
     </View>
@@ -55,6 +136,13 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#FFFFFF',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 12,
+    padding: 24,
   },
   mapPlaceholder: {
     flex: 1,
@@ -70,6 +158,7 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: 'bold',
     color: '#374151',
+    textAlign: 'center',
   },
   mapSubtext: {
     fontSize: 16,
@@ -142,38 +231,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#374151',
     flex: 1,
-  },
-  botonesRow: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  btnLlamar: {
-    flex: 1,
-    backgroundColor: '#F9FAFB',
-    padding: 14,
-    borderRadius: 12,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-  },
-  btnLlamarText: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#374151',
-  },
-  btnMensaje: {
-    flex: 1,
-    backgroundColor: '#F9FAFB',
-    padding: 14,
-    borderRadius: 12,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-  },
-  btnMensajeText: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#374151',
   },
   btnFinalizar: {
     backgroundColor: '#F97316',

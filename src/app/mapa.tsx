@@ -1,9 +1,10 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import { onAuthStateChanged } from 'firebase/auth';
 import { collection, onSnapshot, query, where } from 'firebase/firestore';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { db } from '../firebaseConfig';
+import { auth, db } from '../firebaseConfig';
 import { useLocation } from '../hooks/useLocation';
 
 interface Conductor {
@@ -17,20 +18,37 @@ export default function MapaScreen() {
   const router = useRouter();
   const { location, errorMsg, loading } = useLocation();
   const [conductores, setConductores] = useState<Conductor[]>([]);
+  const [uid, setUid] = useState<string | null>(null);
 
   useEffect(() => {
+    const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
+      setUid(user ? user.uid : null);
+    });
+    return () => unsubscribeAuth();
+  }, []);
+
+  useEffect(() => {
+    if (!uid) return;
+
     const q = query(collection(db, 'conductores'), where('disponible', '==', true));
 
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const lista = snapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-      })) as Conductor[];
-      setConductores(lista);
-    });
+    const unsubscribe = onSnapshot(
+      q,
+      (snapshot) => {
+        const lista = snapshot.docs.map((doc) => ({
+          id: doc.id,
+          ...doc.data(),
+        })) as Conductor[];
+        console.log('Conductores disponibles encontrados:', lista.length);
+        setConductores(lista);
+      },
+      (error) => {
+        console.log('ERROR al leer conductores:', error);
+      }
+    );
 
     return () => unsubscribe();
-  }, []);
+  }, [uid]);
 
   return (
     <View style={styles.container}>

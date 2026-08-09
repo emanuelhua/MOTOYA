@@ -1,10 +1,84 @@
 import { useRouter } from 'expo-router';
+import { addDoc, collection, doc, getDoc, getDocs, query, updateDoc, where } from 'firebase/firestore';
 import { useState } from 'react';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { auth, db } from '../firebaseConfig';
+import { useLocation } from '../hooks/useLocation';
+import { calcularTarifa } from '../utils/calcularTarifa';
 
 export default function PagoScreen() {
   const router = useRouter();
+  const { location } = useLocation();
+  const [destino, setDestino] = useState('');
   const [metodoPago, setMetodoPago] = useState('efectivo');
+  const [cargando, setCargando] = useState(false);
+  const [distanciaKm] = useState(() => Number((Math.random() * 3.2 + 0.8).toFixed(1)));
+
+  const tarifa = calcularTarifa(distanciaKm);
+
+  const origenTexto = location
+    ? `Mi ubicacion (${location.latitude.toFixed(4)}, ${location.longitude.toFixed(4)})`
+    : 'Ubicacion no disponible';
+
+  const handleConfirmar = async () => {
+    if (!destino.trim()) {
+      Alert.alert('Falta el destino', 'Escribe a donde quieres ir');
+      return;
+    }
+
+    const user = auth.currentUser;
+    if (!user) {
+      Alert.alert('Error', 'Debes iniciar sesion');
+      return;
+    }
+
+    setCargando(true);
+    try {
+      const usuarioDoc = await getDoc(doc(db, 'usuarios', user.uid));
+      const pasajeroNombre = usuarioDoc.exists() ? usuarioDoc.data().nombre : 'Pasajero';
+
+      const q = query(collection(db, 'conductores'), where('disponible', '==', true));
+      const snapshot = await getDocs(q);
+
+      if (snapshot.empty) {
+        Alert.alert('Sin conductores', 'No hay mototaxis disponibles en este momento');
+        setCargando(false);
+        return;
+      }
+
+      const conductorDoc = snapshot.docs[0];
+      const conductorData = conductorDoc.data();
+
+      const viajeRef = await addDoc(collection(db, 'viajes'), {
+        pasajeroId: user.uid,
+        pasajeroNombre,
+        conductorId: conductorDoc.id,
+        conductorNombre: conductorData.nombre,
+        conductorPlaca: conductorData.placa,
+        conductorCalificacion: conductorData.calificacion || 5.0,
+        origen: origenTexto,
+        origenLat: location?.latitude || null,
+        origenLng: location?.longitude || null,
+        destino,
+        distanciaKm,
+        tarifa,
+        metodoPago,
+        estado: 'pendiente',
+        calificacion: null,
+        creadoEn: new Date().toISOString(),
+      });
+
+      await updateDoc(doc(db, 'conductores', conductorDoc.id), {
+        disponible: false,
+      });
+
+      router.push(`/viaje?id=${viajeRef.id}`);
+    } catch (error) {
+      Alert.alert('Error', 'No se pudo crear la solicitud de viaje');
+    } finally {
+      setCargando(false);
+    }
+  };
 
   return (
     <View style={styles.container}>
@@ -16,17 +90,22 @@ export default function PagoScreen() {
       <View style={styles.rutaCard}>
         <View style={styles.rutaItem}>
           <Text style={styles.rutaIcono}>📍</Text>
-          <View>
+          <View style={{ flex: 1 }}>
             <Text style={styles.rutaLabel}>Origen</Text>
-            <Text style={styles.rutaTexto}>Jr. Próspero 123</Text>
+            <Text style={styles.rutaTexto}>{origenTexto}</Text>
           </View>
         </View>
         <View style={styles.rutaLineaVertical} />
         <View style={styles.rutaItem}>
           <Text style={styles.rutaIcono}>🏁</Text>
-          <View>
+          <View style={{ flex: 1 }}>
             <Text style={styles.rutaLabel}>Destino</Text>
-            <Text style={styles.rutaTexto}>Av. La Marina 452</Text>
+            <TextInput
+              style={styles.destinoInput}
+              placeholder="Escribe tu destino"
+              value={destino}
+              onChangeText={setDestino}
+            />
           </View>
         </View>
       </View>
@@ -34,16 +113,16 @@ export default function PagoScreen() {
       <View style={styles.tarifaCard}>
         <View style={styles.tarifaRow}>
           <Text style={styles.tarifaLabel}>Distancia</Text>
-          <Text style={styles.tarifaValor}>1.2 km</Text>
+          <Text style={styles.tarifaValor}>{distanciaKm} km</Text>
         </View>
         <View style={styles.tarifaRow}>
           <Text style={styles.tarifaLabel}>Tiempo estimado</Text>
-          <Text style={styles.tarifaValor}>6 min</Text>
+          <Text style={styles.tarifaValor}>{Math.round(distanciaKm * 3.5)} min</Text>
         </View>
         <View style={styles.divider} />
         <View style={styles.tarifaRow}>
           <Text style={styles.tarifaTotal}>Total a pagar</Text>
-          <Text style={styles.tarifaTotalValor}>S/ 3.50</Text>
+          <Text style={styles.tarifaTotalValor}>S/ {tarifa.toFixed(2)}</Text>
         </View>
       </View>
 
@@ -72,9 +151,14 @@ export default function PagoScreen() {
 
       <TouchableOpacity
         style={styles.btnConfirmar}
-        onPress={() => router.push('/viaje')}
+        onPress={handleConfirmar}
+        disabled={cargando}
       >
-        <Text style={styles.btnConfirmarText}>Confirmar y solicitar</Text>
+        {cargando ? (
+          <ActivityIndicator color="#FFFFFF" />
+        ) : (
+          <Text style={styles.btnConfirmarText}>Confirmar y solicitar</Text>
+        )}
       </TouchableOpacity>
 
       <TouchableOpacity onPress={() => router.back()}>
@@ -124,9 +208,15 @@ const styles = StyleSheet.create({
     color: '#9CA3AF',
   },
   rutaTexto: {
+    fontSize: 13,
+    color: '#111827',
+    fontWeight: '600',
+  },
+  destinoInput: {
     fontSize: 15,
     color: '#111827',
     fontWeight: '600',
+    paddingVertical: 2,
   },
   rutaLineaVertical: {
     width: 1,

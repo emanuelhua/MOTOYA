@@ -1,37 +1,142 @@
 import { useRouter } from 'expo-router';
-import { doc, updateDoc } from 'firebase/firestore';
+import { onAuthStateChanged } from 'firebase/auth';
+import {
+  collection,
+  doc,
+  getDocs,
+  onSnapshot,
+  query,
+  updateDoc,
+  where,
+} from 'firebase/firestore';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Linking, StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native';
 import { auth, db } from '../firebaseConfig';
+
+interface ViajeSolicitud {
+  id: string;
+  pasajeroNombre: string;
+  origen: string;
+  origenLat: number | null;
+  origenLng: number | null;
+  destino: string;
+  tarifa: number;
+  metodoPago: string;
+  estado: string;
+}
 
 export default function ConductorScreen() {
   const router = useRouter();
   const [disponible, setDisponible] = useState(false);
   const [cargando, setCargando] = useState(false);
   const [nombreConductor, setNombreConductor] = useState('');
+  const [viaje, setViaje] = useState<ViajeSolicitud | null>(null);
+  const [procesando, setProcesando] = useState(false);
+  const [uid, setUid] = useState<string | null>(null);
 
   useEffect(() => {
-    const user = auth.currentUser;
-    if (user) {
-      setNombreConductor(user.email || 'Conductor');
-    }
+    const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
+      if (user) {
+        setNombreConductor(user.email || 'Conductor');
+        setUid(user.uid);
+      } else {
+        setUid(null);
+      }
+    });
+    return () => unsubscribeAuth();
   }, []);
 
+  useEffect(() => {
+    if (!uid) return;
+
+    const q = query(
+      collection(db, 'viajes'),
+      where('conductorId', '==', uid),
+      where('estado', 'in', ['pendiente', 'en_curso'])
+    );
+
+    const unsubscribe = onSnapshot(
+      q,
+      (snapshot) => {
+        console.log('Viajes encontrados para este conductor:', snapshot.docs.length);
+        if (!snapshot.empty) {
+          const d = snapshot.docs[0];
+          setViaje({ id: d.id, ...d.data() } as ViajeSolicitud);
+        } else {
+          setViaje(null);
+        }
+      },
+      (error) => {
+        console.log('ERROR en la consulta de viajes:', error);
+      }
+    );
+
+    return () => unsubscribe();
+  }, [uid]);
+
   const toggleDisponible = async (valor: boolean) => {
-    const user = auth.currentUser;
-    if (!user) return;
+    if (!uid) return;
 
     setCargando(true);
     setDisponible(valor);
 
     try {
-      await updateDoc(doc(db, 'conductores', user.uid), {
+      await updateDoc(doc(db, 'conductores', uid), {
         disponible: valor,
       });
     } catch (error) {
       console.log('Error al actualizar disponibilidad:', error);
     } finally {
       setCargando(false);
+    }
+  };
+
+  const handleAceptar = async () => {
+    if (!viaje) return;
+    setProcesando(true);
+    try {
+      await updateDoc(doc(db, 'viajes', viaje.id), { estado: 'en_curso' });
+    } finally {
+      setProcesando(false);
+    }
+  };
+
+  const handleRechazar = async () => {
+    if (!viaje) return;
+    setProcesando(true);
+    setViaje(null);
+    try {
+      const q = query(collection(db, 'conductores'), where('disponible', '==', true));
+      const snapshot = await getDocs(q);
+      const otro = snapshot.docs.find((d) => d.id !== uid);
+
+      if (otro) {
+        const otroData = otro.data();
+        await updateDoc(doc(db, 'viajes', viaje.id), {
+          conductorId: otro.id,
+          conductorNombre: otroData.nombre,
+          conductorPlaca: otroData.placa,
+          conductorCalificacion: otroData.calificacion || 5.0,
+        });
+      } else {
+        await updateDoc(doc(db, 'viajes', viaje.id), { estado: 'cancelado' });
+      }
+
+      if (uid) {
+        await updateDoc(doc(db, 'conductores', uid), { disponible: true });
+      }
+    } finally {
+      setProcesando(false);
+    }
+  };
+
+  const handleFinalizarViaje = async () => {
+    if (!viaje) return;
+    setProcesando(true);
+    try {
+      await updateDoc(doc(db, 'viajes', viaje.id), { estado: 'completado' });
+    } finally {
+      setProcesando(false);
     }
   };
 
@@ -52,14 +157,77 @@ export default function ConductorScreen() {
             onValueChange={toggleDisponible}
             trackColor={{ false: '#D1D5DB', true: '#F97316' }}
             thumbColor={disponible ? '#FFFFFF' : '#FFFFFF'}
+            disabled={!!viaje}
           />
         )}
         <Text style={[styles.statusText, { color: disponible ? '#16A34A' : '#6B7280' }]}>
-          {disponible ? '🟢 En línea - visible para pasajeros' : '🔴 Fuera de línea'}
+          {viaje?.estado === 'pendiente'
+            ? '🔔 Nueva solicitud'
+            : viaje?.estado === 'en_curso'
+            ? '🚕 En viaje'
+            : disponible
+            ? '🟢 En línea - visible para pasajeros'
+            : '🔴 Fuera de línea'}
         </Text>
       </View>
 
-      {disponible && (
+      {viaje?.estado === 'pendiente' && (
+        <View style={styles.solicitudCard}>
+          <Text style={styles.solicitudTitle}>🛺 Nueva solicitud</Text>
+          <Text style={styles.solicitudInfo}>Pasajero: {viaje.pasajeroNombre}</Text>
+          <Text style={styles.solicitudInfo}>Origen: {viaje.origen}</Text>
+          {viaje.origenLat && viaje.origenLng && (
+            <TouchableOpacity
+              onPress={() =>
+                Linking.openURL(`https://www.google.com/maps?q=${viaje.origenLat},${viaje.origenLng}`)
+              }
+            >
+              <Text style={styles.linkMapa}>📍 Ver ubicación del pasajero en el mapa</Text>
+            </TouchableOpacity>
+          )}
+          <Text style={styles.solicitudInfo}>Destino: {viaje.destino}</Text>
+          <Text style={styles.solicitudInfo}>
+            Pago: S/ {viaje.tarifa.toFixed(2)} ({viaje.metodoPago})
+          </Text>
+
+          <View style={styles.solicitudBtns}>
+            <TouchableOpacity style={styles.btnAceptar} onPress={handleAceptar} disabled={procesando}>
+              {procesando ? <ActivityIndicator color="#FFFFFF" /> : <Text style={styles.btnText}>Aceptar</Text>}
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.btnRechazar} onPress={handleRechazar} disabled={procesando}>
+              <Text style={styles.btnText}>Rechazar</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
+
+      {viaje?.estado === 'en_curso' && (
+        <View style={styles.solicitudCard}>
+          <Text style={styles.solicitudTitle}>🛺 Viaje en curso</Text>
+          <Text style={styles.solicitudInfo}>Pasajero: {viaje.pasajeroNombre}</Text>
+          {viaje.origenLat && viaje.origenLng && (
+            <TouchableOpacity
+              onPress={() =>
+                Linking.openURL(`https://www.google.com/maps?q=${viaje.origenLat},${viaje.origenLng}`)
+              }
+            >
+              <Text style={styles.linkMapa}>📍 Ver ubicación del pasajero en el mapa</Text>
+            </TouchableOpacity>
+          )}
+          <Text style={styles.solicitudInfo}>Destino: {viaje.destino}</Text>
+          <Text style={styles.solicitudInfo}>Pago: S/ {viaje.tarifa.toFixed(2)}</Text>
+
+          <TouchableOpacity style={styles.btnFinalizar} onPress={handleFinalizarViaje} disabled={procesando}>
+            {procesando ? (
+              <ActivityIndicator color="#FFFFFF" />
+            ) : (
+              <Text style={styles.btnFinalizarText}>Marcar como finalizado</Text>
+            )}
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {!viaje && disponible && (
         <View style={styles.solicitudCard}>
           <Text style={styles.solicitudTitle}>🛺 Esperando solicitudes</Text>
           <Text style={styles.solicitudInfo}>
@@ -130,6 +298,49 @@ const styles = StyleSheet.create({
   solicitudInfo: {
     fontSize: 15,
     color: '#374151',
+  },
+  linkMapa: {
+    color: '#2563EB',
+    fontSize: 14,
+    fontWeight: '600',
+    textDecorationLine: 'underline',
+    marginTop: 4,
+  },
+  solicitudBtns: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 12,
+  },
+  btnAceptar: {
+    flex: 1,
+    backgroundColor: '#16A34A',
+    padding: 14,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  btnRechazar: {
+    flex: 1,
+    backgroundColor: '#DC2626',
+    padding: 14,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  btnText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  btnFinalizar: {
+    backgroundColor: '#16A34A',
+    padding: 14,
+    borderRadius: 12,
+    alignItems: 'center',
+    marginTop: 12,
+  },
+  btnFinalizarText: {
+    color: '#FFFFFF',
+    fontWeight: 'bold',
+    fontSize: 15,
   },
   btnVolver: {
     alignItems: 'center',

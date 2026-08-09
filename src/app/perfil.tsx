@@ -1,6 +1,6 @@
 import { useFocusEffect, useRouter } from 'expo-router';
 import { signOut } from 'firebase/auth';
-import { doc, getDoc } from 'firebase/firestore';
+import { collection, doc, getDoc, getDocs, query, where } from 'firebase/firestore';
 import { useCallback, useState } from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { auth, db } from '../firebaseConfig';
@@ -10,6 +10,10 @@ export default function PerfilScreen() {
   const [nombre, setNombre] = useState('Usuario');
   const [correo, setCorreo] = useState('');
   const [telefono, setTelefono] = useState('');
+  const [rol, setRol] = useState<'pasajero' | 'conductor'>('pasajero');
+  const [totalViajes, setTotalViajes] = useState(0);
+  const [calificacionProm, setCalificacionProm] = useState(0);
+  const [gastoTotal, setGastoTotal] = useState(0);
   const [confirmandoSalida, setConfirmandoSalida] = useState(false);
 
   useFocusEffect(
@@ -25,7 +29,24 @@ export default function PerfilScreen() {
           const data = userDoc.data();
           setNombre(data.nombre || 'Usuario');
           setTelefono(data.telefono || '');
+          setRol(data.rol || 'pasajero');
         }
+
+        const q = query(collection(db, 'viajes'), where('pasajeroId', '==', user.uid));
+        const snapshot = await getDocs(q);
+        const viajes = snapshot.docs.map((d) => d.data());
+
+        setTotalViajes(viajes.length);
+
+        const gasto = viajes.reduce((suma, v: any) => suma + (v.tarifa || 0), 0);
+        setGastoTotal(gasto);
+
+        const calificados = viajes.filter((v: any) => v.calificacion);
+        const promedio =
+          calificados.length > 0
+            ? calificados.reduce((s, v: any) => s + v.calificacion, 0) / calificados.length
+            : 0;
+        setCalificacionProm(promedio);
       };
       cargarDatos();
     }, [])
@@ -54,22 +75,41 @@ export default function PerfilScreen() {
         <Text style={styles.telefono}>📱 {telefono}</Text>
       </View>
 
+      {rol === 'conductor' && (
+        <View style={styles.rolBanner}>
+          <Text style={styles.rolBannerTexto}>🛺 Cuenta de conductor</Text>
+        </View>
+      )}
+
       <View style={styles.statsRow}>
         <View style={styles.statCard}>
-          <Text style={styles.statNum}>24</Text>
+          <Text style={styles.statNum}>{totalViajes}</Text>
           <Text style={styles.statLabel}>Viajes</Text>
         </View>
         <View style={styles.statCard}>
-          <Text style={styles.statNum}>4.8</Text>
+          <Text style={styles.statNum}>
+            {calificacionProm > 0 ? calificacionProm.toFixed(1) : '-'}
+          </Text>
           <Text style={styles.statLabel}>Calificación</Text>
         </View>
         <View style={styles.statCard}>
-          <Text style={styles.statNum}>S/68</Text>
+          <Text style={styles.statNum}>S/{gastoTotal.toFixed(2)}</Text>
           <Text style={styles.statLabel}>Gastado</Text>
         </View>
       </View>
 
       <View style={styles.menu}>
+        {rol === 'conductor' && (
+          <TouchableOpacity
+            style={[styles.menuItem, styles.menuItemConductor]}
+            onPress={() => router.push('/conductor')}
+          >
+            <Text style={styles.menuEmoji}>🛺</Text>
+            <Text style={styles.menuTextoConductor}>Ir a mi panel de conductor</Text>
+            <Text style={styles.menuArrow}>›</Text>
+          </TouchableOpacity>
+        )}
+
         <TouchableOpacity style={styles.menuItem} onPress={() => router.push('/editar-perfil')}>
           <Text style={styles.menuEmoji}>✏️</Text>
           <Text style={styles.menuTexto}>Editar perfil</Text>
@@ -162,6 +202,16 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#FED7AA',
   },
+  rolBanner: {
+    backgroundColor: '#FFF7ED',
+    paddingVertical: 8,
+    alignItems: 'center',
+  },
+  rolBannerTexto: {
+    color: '#F97316',
+    fontWeight: '600',
+    fontSize: 13,
+  },
   statsRow: {
     flexDirection: 'row',
     padding: 24,
@@ -200,6 +250,10 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#E5E7EB',
   },
+  menuItemConductor: {
+    backgroundColor: '#FFF7ED',
+    borderColor: '#F97316',
+  },
   menuItemRojo: {
     borderColor: '#FCA5A5',
     backgroundColor: '#FFF5F5',
@@ -212,6 +266,12 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 16,
     color: '#374151',
+  },
+  menuTextoConductor: {
+    flex: 1,
+    fontSize: 16,
+    color: '#F97316',
+    fontWeight: '600',
   },
   menuTextoRojo: {
     flex: 1,

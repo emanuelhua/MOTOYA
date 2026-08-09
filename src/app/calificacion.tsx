@@ -1,10 +1,71 @@
-import { useRouter } from 'expo-router';
-import { useState } from 'react';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { doc, getDoc, updateDoc } from 'firebase/firestore';
+import { useEffect, useState } from 'react';
+import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { db } from '../firebaseConfig';
+
+interface Viaje {
+  conductorId: string;
+  conductorNombre: string;
+  conductorPlaca: string;
+}
 
 export default function CalificacionScreen() {
   const router = useRouter();
+  const { id } = useLocalSearchParams<{ id: string }>();
   const [estrellas, setEstrellas] = useState(0);
+  const [viaje, setViaje] = useState<Viaje | null>(null);
+  const [cargando, setCargando] = useState(true);
+  const [enviando, setEnviando] = useState(false);
+
+  useEffect(() => {
+    const cargarViaje = async () => {
+      if (!id) return;
+      const viajeDoc = await getDoc(doc(db, 'viajes', id));
+      if (viajeDoc.exists()) {
+        setViaje(viajeDoc.data() as Viaje);
+      }
+      setCargando(false);
+    };
+    cargarViaje();
+  }, [id]);
+
+  const liberarConductor = async () => {
+    if (viaje?.conductorId) {
+      await updateDoc(doc(db, 'conductores', viaje.conductorId), {
+        disponible: true,
+      });
+    }
+  };
+
+  const handleEnviar = async () => {
+    if (!id || estrellas === 0) return;
+    setEnviando(true);
+    try {
+      await updateDoc(doc(db, 'viajes', id), { calificacion: estrellas });
+      await liberarConductor();
+      router.push('/mapa');
+    } finally {
+      setEnviando(false);
+    }
+  };
+
+  const handleOmitir = async () => {
+    await liberarConductor();
+    router.push('/mapa');
+  };
+
+  if (cargando) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator color="#F97316" size="large" />
+      </View>
+    );
+  }
+
+  const iniciales = viaje
+    ? viaje.conductorNombre.split(' ').map((p) => p[0]).join('').slice(0, 2).toUpperCase()
+    : '??';
 
   return (
     <View style={styles.container}>
@@ -15,9 +76,9 @@ export default function CalificacionScreen() {
       </View>
 
       <View style={styles.conductorCard}>
-        <Text style={styles.conductorEmoji}>👨‍✈️</Text>
-        <Text style={styles.conductorNombre}>Carlos Quispe</Text>
-        <Text style={styles.conductorInfo}>Mototaxi • Placa: IQ-1234</Text>
+        <Text style={styles.conductorEmoji}>{iniciales}</Text>
+        <Text style={styles.conductorNombre}>{viaje?.conductorNombre}</Text>
+        <Text style={styles.conductorInfo}>Mototaxi • Placa: {viaje?.conductorPlaca}</Text>
       </View>
 
       <View style={styles.estrellasContainer}>
@@ -39,15 +100,19 @@ export default function CalificacionScreen() {
         {estrellas === 5 && '¡Excelente!'}
       </Text>
 
-      <TouchableOpacity 
+      <TouchableOpacity
         style={[styles.btn, estrellas === 0 && styles.btnDisabled]}
-        onPress={() => router.push('/')}
-        disabled={estrellas === 0}
+        onPress={handleEnviar}
+        disabled={estrellas === 0 || enviando}
       >
-        <Text style={styles.btnText}>Enviar calificación</Text>
+        {enviando ? (
+          <ActivityIndicator color="#FFFFFF" />
+        ) : (
+          <Text style={styles.btnText}>Enviar calificación</Text>
+        )}
       </TouchableOpacity>
 
-      <TouchableOpacity onPress={() => router.push('/')}>
+      <TouchableOpacity onPress={handleOmitir}>
         <Text style={styles.link}>Omitir</Text>
       </TouchableOpacity>
     </View>
@@ -62,6 +127,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 24,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   hero: {
     alignItems: 'center',
@@ -90,7 +160,9 @@ const styles = StyleSheet.create({
     borderColor: '#E5E7EB',
   },
   conductorEmoji: {
-    fontSize: 48,
+    fontSize: 32,
+    fontWeight: 'bold',
+    color: '#F97316',
   },
   conductorNombre: {
     fontSize: 20,
