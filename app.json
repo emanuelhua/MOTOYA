@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "MotoYa",
-    "slug": "MotoYa",
+    "slug": "motoya",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
@@ -17,7 +17,8 @@
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "package": "com.emi26steam.motoya"
     },
     "web": {
       "output": "static",
@@ -37,6 +38,13 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "78dd96fe-b20e-4365-8380-a7496708e344"
+      }
+    },
+    "owner": "emi26s-team"
   }
 }
