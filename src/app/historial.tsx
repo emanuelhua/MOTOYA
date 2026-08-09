@@ -1,5 +1,6 @@
 import { useFocusEffect, useRouter } from 'expo-router';
-import { collection, getDocs, orderBy, query, where } from 'firebase/firestore';
+import { onAuthStateChanged } from 'firebase/auth';
+import { collection, doc, getDoc, getDocs, orderBy, query, where } from 'firebase/firestore';
 import { useCallback, useState } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { auth, db } from '../firebaseConfig';
@@ -10,7 +11,9 @@ interface Viaje {
   origen: string;
   tarifa: number;
   conductorNombre: string;
+  pasajeroNombre: string;
   calificacion: number | null;
+  comentario?: string | null;
   creadoEn: string;
   estado: string;
 }
@@ -29,33 +32,47 @@ export default function HistorialScreen() {
   const router = useRouter();
   const [viajes, setViajes] = useState<Viaje[]>([]);
   const [cargando, setCargando] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [rol, setRol] = useState<'pasajero' | 'conductor'>('pasajero');
 
   useFocusEffect(
     useCallback(() => {
-      const cargarViajes = async () => {
-        const user = auth.currentUser;
-        if (!user) return;
+      const unsubscribe = onAuthStateChanged(auth, async (user) => {
+        if (!user) {
+          setCargando(false);
+          return;
+        }
 
         setCargando(true);
+        setError(null);
         try {
+          const userDoc = await getDoc(doc(db, 'usuarios', user.uid));
+          const rolUsuario = userDoc.exists() ? userDoc.data().rol || 'pasajero' : 'pasajero';
+          setRol(rolUsuario);
+
+          const campo = rolUsuario === 'conductor' ? 'conductorId' : 'pasajeroId';
+
           const q = query(
             collection(db, 'viajes'),
-            where('pasajeroId', '==', user.uid),
+            where(campo, '==', user.uid),
             orderBy('creadoEn', 'desc')
           );
           const snapshot = await getDocs(q);
-          const lista = snapshot.docs.map((doc) => ({
-            id: doc.id,
-            ...doc.data(),
+          const lista = snapshot.docs.map((d) => ({
+            id: d.id,
+            ...d.data(),
           })) as Viaje[];
+          console.log('Viajes encontrados en historial:', lista.length);
           setViajes(lista);
-        } catch (error) {
-          console.log('Error cargando historial:', error);
+        } catch (err: any) {
+          console.log('ERROR cargando historial:', err);
+          setError(err.message || 'Error al cargar el historial');
         } finally {
           setCargando(false);
         }
-      };
-      cargarViajes();
+      });
+
+      return () => unsubscribe();
     }, [])
   );
 
@@ -68,6 +85,11 @@ export default function HistorialScreen() {
 
       {cargando ? (
         <ActivityIndicator color="#F97316" size="large" style={{ marginTop: 40 }} />
+      ) : error ? (
+        <View style={styles.vacioContainer}>
+          <Text style={styles.vacioEmoji}>⚠️</Text>
+          <Text style={styles.vacioTexto}>{error}</Text>
+        </View>
       ) : viajes.length === 0 ? (
         <View style={styles.vacioContainer}>
           <Text style={styles.vacioEmoji}>🛺</Text>
@@ -89,11 +111,17 @@ export default function HistorialScreen() {
               </View>
 
               <View style={styles.cardFooter}>
-                <Text style={styles.conductor}>👨‍✈️ {viaje.conductorNombre}</Text>
+                <Text style={styles.conductor}>
+                  {rol === 'conductor' ? `🧍 ${viaje.pasajeroNombre}` : `👨‍✈️ ${viaje.conductorNombre}`}
+                </Text>
                 <Text style={styles.estrellas}>
                   {viaje.calificacion ? '⭐'.repeat(viaje.calificacion) : 'Sin calificar'}
                 </Text>
               </View>
+
+              {viaje.comentario && (
+                <Text style={styles.comentario}>"{viaje.comentario}"</Text>
+              )}
             </View>
           ))}
         </ScrollView>
@@ -130,6 +158,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     gap: 8,
+    paddingHorizontal: 24,
   },
   vacioEmoji: {
     fontSize: 48,
@@ -137,6 +166,7 @@ const styles = StyleSheet.create({
   vacioTexto: {
     fontSize: 15,
     color: '#9CA3AF',
+    textAlign: 'center',
   },
   lista: {
     flex: 1,
@@ -186,6 +216,11 @@ const styles = StyleSheet.create({
   },
   estrellas: {
     fontSize: 12,
+  },
+  comentario: {
+    fontSize: 13,
+    color: '#6B7280',
+    fontStyle: 'italic',
   },
   btnVolver: {
     alignItems: 'center',

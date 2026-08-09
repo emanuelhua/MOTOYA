@@ -1,7 +1,7 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { db } from '../firebaseConfig';
 
 interface Viaje {
@@ -14,6 +14,7 @@ export default function CalificacionScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
   const [estrellas, setEstrellas] = useState(0);
+  const [comentario, setComentario] = useState('');
   const [viaje, setViaje] = useState<Viaje | null>(null);
   const [cargando, setCargando] = useState(true);
   const [enviando, setEnviando] = useState(false);
@@ -42,7 +43,10 @@ export default function CalificacionScreen() {
     if (!id || estrellas === 0) return;
     setEnviando(true);
     try {
-      await updateDoc(doc(db, 'viajes', id), { calificacion: estrellas });
+      await updateDoc(doc(db, 'viajes', id), {
+        calificacion: estrellas,
+        comentario: comentario.trim() || null,
+      });
       await liberarConductor();
       router.push('/mapa');
     } finally {
@@ -100,6 +104,16 @@ export default function CalificacionScreen() {
         {estrellas === 5 && '¡Excelente!'}
       </Text>
 
+      <TextInput
+        style={styles.comentarioInput}
+        placeholder="Cuéntanos más sobre tu viaje (opcional)"
+        placeholderTextColor="#9CA3AF"
+        multiline
+        numberOfLines={3}
+        value={comentario}
+        onChangeText={setComentario}
+      />
+
       <TouchableOpacity
         style={[styles.btn, estrellas === 0 && styles.btnDisabled]}
         onPress={handleEnviar}
@@ -126,7 +140,7 @@ const styles = StyleSheet.create({
     padding: 24,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 24,
+    gap: 20,
   },
   loadingContainer: {
     flex: 1,
@@ -184,6 +198,17 @@ const styles = StyleSheet.create({
     fontSize: 18,
     color: '#F97316',
     fontWeight: '600',
+  },
+  comentarioInput: {
+    width: '100%',
+    borderWidth: 1,
+    borderColor: '#D1D5DB',
+    borderRadius: 12,
+    padding: 14,
+    fontSize: 15,
+    color: '#111827',
+    minHeight: 80,
+    textAlignVertical: 'top',
   },
   btn: {
     backgroundColor: '#F97316',
