@@ -17,16 +17,20 @@ export default function HomeScreen() {
           style={styles.btnPasajero}
           onPress={() => router.push('/login')}
         >
-          <Text style={styles.btnText}>Soy Pasajero</Text>
+          <Text style={styles.btnText}>Iniciar sesión</Text>
         </TouchableOpacity>
 
         <TouchableOpacity 
           style={styles.btnConductor}
-          onPress={() => router.push('/conductor')}
+          onPress={() => router.push('/registro')}
         >
-          <Text style={styles.btnTextOutline}>Soy Conductor</Text>
+          <Text style={styles.btnTextOutline}>Crear cuenta nueva</Text>
         </TouchableOpacity>
       </View>
+
+      <Text style={styles.hint}>
+        Al registrarte eliges si eres pasajero o conductor
+      </Text>
     </View>
   );
 }
@@ -83,5 +87,11 @@ const styles = StyleSheet.create({
     color: '#F97316',
     fontSize: 18,
     fontWeight: 'bold',
+  },
+  hint: {
+    marginTop: 20,
+    fontSize: 13,
+    color: '#9CA3AF',
+    textAlign: 'center',
   },
 });

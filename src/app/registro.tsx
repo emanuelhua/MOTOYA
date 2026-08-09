@@ -11,11 +11,17 @@ export default function RegistroScreen() {
   const [correo, setCorreo] = useState('');
   const [telefono, setTelefono] = useState('');
   const [password, setPassword] = useState('');
+  const [rol, setRol] = useState<'pasajero' | 'conductor'>('pasajero');
+  const [placa, setPlaca] = useState('');
   const [cargando, setCargando] = useState(false);
 
   const handleRegistro = async () => {
     if (!nombre || !correo || !telefono || !password) {
       Alert.alert('Faltan datos', 'Completa todos los campos');
+      return;
+    }
+    if (rol === 'conductor' && !placa) {
+      Alert.alert('Faltan datos', 'Ingresa la placa de tu mototaxi');
       return;
     }
 
@@ -28,13 +34,32 @@ export default function RegistroScreen() {
         nombre,
         correo,
         telefono,
+        rol,
         creadoEn: new Date().toISOString(),
       });
 
+      if (rol === 'conductor') {
+        await setDoc(doc(db, 'conductores', uid), {
+          nombre,
+          telefono,
+          placa,
+          calificacion: 5.0,
+          disponible: false,
+        });
+      }
+
       Alert.alert('Cuenta creada', 'Registro exitoso');
-      router.push('/mapa');
+      router.push(rol === 'conductor' ? '/conductor' : '/mapa');
     } catch (error: any) {
-      Alert.alert('Error al registrar', error.message);
+      if (error.code === 'auth/email-already-in-use') {
+        Alert.alert('Correo en uso', 'Ese correo ya tiene una cuenta registrada. Intenta iniciar sesión.');
+      } else if (error.code === 'auth/weak-password') {
+        Alert.alert('Contraseña débil', 'La contraseña debe tener al menos 6 caracteres.');
+      } else if (error.code === 'auth/invalid-email') {
+        Alert.alert('Correo inválido', 'Revisa que el correo esté bien escrito.');
+      } else {
+        Alert.alert('Error al registrar', 'Ocurrió un problema, intenta de nuevo.');
+      }
     } finally {
       setCargando(false);
     }
@@ -46,6 +71,25 @@ export default function RegistroScreen() {
       <Text style={styles.subtitle}>Únete a MotoYa</Text>
 
       <View style={styles.form}>
+        <View style={styles.rolRow}>
+          <TouchableOpacity
+            style={[styles.rolBtn, rol === 'pasajero' && styles.rolBtnActivo]}
+            onPress={() => setRol('pasajero')}
+          >
+            <Text style={[styles.rolTexto, rol === 'pasajero' && styles.rolTextoActivo]}>
+              🧍 Pasajero
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.rolBtn, rol === 'conductor' && styles.rolBtnActivo]}
+            onPress={() => setRol('conductor')}
+          >
+            <Text style={[styles.rolTexto, rol === 'conductor' && styles.rolTextoActivo]}>
+              🛺 Conductor
+            </Text>
+          </TouchableOpacity>
+        </View>
+
         <TextInput
           style={styles.input}
           placeholder="Nombre completo"
@@ -67,6 +111,17 @@ export default function RegistroScreen() {
           value={telefono}
           onChangeText={setTelefono}
         />
+
+        {rol === 'conductor' && (
+          <TextInput
+            style={styles.input}
+            placeholder="Placa del mototaxi (Ej: IQ-1234)"
+            autoCapitalize="characters"
+            value={placa}
+            onChangeText={setPlaca}
+          />
+        )}
+
         <TextInput
           style={styles.input}
           placeholder="Contraseña"
@@ -107,10 +162,35 @@ const styles = StyleSheet.create({
   subtitle: {
     fontSize: 16,
     color: '#6B7280',
-    marginBottom: 40,
+    marginBottom: 24,
   },
   form: {
     gap: 16,
+  },
+  rolRow: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 8,
+  },
+  rolBtn: {
+    flex: 1,
+    borderWidth: 2,
+    borderColor: '#E5E7EB',
+    borderRadius: 12,
+    padding: 14,
+    alignItems: 'center',
+  },
+  rolBtnActivo: {
+    borderColor: '#F97316',
+    backgroundColor: '#FFF7ED',
+  },
+  rolTexto: {
+    fontSize: 15,
+    color: '#6B7280',
+    fontWeight: '600',
+  },
+  rolTextoActivo: {
+    color: '#F97316',
   },
   input: {
     borderWidth: 1,

@@ -1,8 +1,9 @@
 import { useRouter } from 'expo-router';
 import { signInWithEmailAndPassword } from 'firebase/auth';
+import { doc, getDoc } from 'firebase/firestore';
 import { useState } from 'react';
 import { ActivityIndicator, Alert, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import { auth } from '../firebaseConfig';
+import { auth, db } from '../firebaseConfig';
 
 export default function LoginScreen() {
   const router = useRouter();
@@ -18,8 +19,13 @@ export default function LoginScreen() {
 
     setCargando(true);
     try {
-      await signInWithEmailAndPassword(auth, correo, password);
-      router.push('/mapa');
+      const userCredential = await signInWithEmailAndPassword(auth, correo, password);
+      const uid = userCredential.user.uid;
+
+      const userDoc = await getDoc(doc(db, 'usuarios', uid));
+      const rol = userDoc.exists() ? userDoc.data().rol : 'pasajero';
+
+      router.push(rol === 'conductor' ? '/conductor' : '/mapa');
     } catch (error: any) {
       Alert.alert('Error al iniciar sesión', 'Correo o contraseña incorrectos');
     } finally {

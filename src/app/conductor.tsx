@@ -1,51 +1,75 @@
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
-import { StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native';
+import { doc, updateDoc } from 'firebase/firestore';
+import { useEffect, useState } from 'react';
+import { ActivityIndicator, StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native';
+import { auth, db } from '../firebaseConfig';
 
 export default function ConductorScreen() {
   const router = useRouter();
   const [disponible, setDisponible] = useState(false);
+  const [cargando, setCargando] = useState(false);
+  const [nombreConductor, setNombreConductor] = useState('');
+
+  useEffect(() => {
+    const user = auth.currentUser;
+    if (user) {
+      setNombreConductor(user.email || 'Conductor');
+    }
+  }, []);
+
+  const toggleDisponible = async (valor: boolean) => {
+    const user = auth.currentUser;
+    if (!user) return;
+
+    setCargando(true);
+    setDisponible(valor);
+
+    try {
+      await updateDoc(doc(db, 'conductores', user.uid), {
+        disponible: valor,
+      });
+    } catch (error) {
+      console.log('Error al actualizar disponibilidad:', error);
+    } finally {
+      setCargando(false);
+    }
+  };
 
   return (
     <View style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.title}>Panel Conductor</Text>
-        <Text style={styles.subtitle}>Bienvenido, conductor</Text>
+        <Text style={styles.subtitle}>{nombreConductor}</Text>
       </View>
 
       <View style={styles.statusCard}>
         <Text style={styles.statusTitle}>¿Estás disponible?</Text>
-        <Switch
-          value={disponible}
-          onValueChange={setDisponible}
-          trackColor={{ false: '#D1D5DB', true: '#F97316' }}
-          thumbColor={disponible ? '#FFFFFF' : '#FFFFFF'}
-        />
+        {cargando ? (
+          <ActivityIndicator color="#F97316" />
+        ) : (
+          <Switch
+            value={disponible}
+            onValueChange={toggleDisponible}
+            trackColor={{ false: '#D1D5DB', true: '#F97316' }}
+            thumbColor={disponible ? '#FFFFFF' : '#FFFFFF'}
+          />
+        )}
         <Text style={[styles.statusText, { color: disponible ? '#16A34A' : '#6B7280' }]}>
-          {disponible ? '🟢 En línea' : '🔴 Fuera de línea'}
+          {disponible ? '🟢 En línea - visible para pasajeros' : '🔴 Fuera de línea'}
         </Text>
       </View>
 
       {disponible && (
         <View style={styles.solicitudCard}>
-          <Text style={styles.solicitudTitle}>🛺 Nueva solicitud</Text>
-          <Text style={styles.solicitudInfo}>Pasajero: Juan Pérez</Text>
-          <Text style={styles.solicitudInfo}>Distancia: 500m</Text>
-          <Text style={styles.solicitudInfo}>Destino: Av. La Marina 452</Text>
-
-          <View style={styles.solicitudBtns}>
-            <TouchableOpacity style={styles.btnAceptar}>
-              <Text style={styles.btnText}>Aceptar</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.btnRechazar}>
-              <Text style={styles.btnText}>Rechazar</Text>
-            </TouchableOpacity>
-          </View>
+          <Text style={styles.solicitudTitle}>🛺 Esperando solicitudes</Text>
+          <Text style={styles.solicitudInfo}>
+            Ahora apareces disponible en el mapa de los pasajeros cercanos.
+          </Text>
         </View>
       )}
 
-      <TouchableOpacity onPress={() => router.back()} style={styles.btnVolver}>
-        <Text style={styles.btnVolverText}>Volver</Text>
+      <TouchableOpacity onPress={() => router.push('/perfil')} style={styles.btnVolver}>
+        <Text style={styles.btnVolverText}>Ver mi perfil</Text>
       </TouchableOpacity>
     </View>
   );
@@ -87,6 +111,7 @@ const styles = StyleSheet.create({
   statusText: {
     fontSize: 16,
     fontWeight: '600',
+    textAlign: 'center',
   },
   solicitudCard: {
     backgroundColor: '#FFF7ED',
@@ -103,32 +128,8 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   solicitudInfo: {
-    fontSize: 16,
+    fontSize: 15,
     color: '#374151',
-  },
-  solicitudBtns: {
-    flexDirection: 'row',
-    gap: 12,
-    marginTop: 12,
-  },
-  btnAceptar: {
-    flex: 1,
-    backgroundColor: '#16A34A',
-    padding: 14,
-    borderRadius: 12,
-    alignItems: 'center',
-  },
-  btnRechazar: {
-    flex: 1,
-    backgroundColor: '#DC2626',
-    padding: 14,
-    borderRadius: 12,
-    alignItems: 'center',
-  },
-  btnText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: 'bold',
   },
   btnVolver: {
     alignItems: 'center',
