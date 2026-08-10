@@ -103,6 +103,7 @@ export default function PagoScreen() {
             <TextInput
               style={styles.destinoInput}
               placeholder="Escribe tu destino"
+              placeholderTextColor="#9CA3AF"
               value={destino}
               onChangeText={setDestino}
             />

@@ -44,6 +44,7 @@ export default function LoginScreen() {
         <TextInput
           style={styles.input}
           placeholder="Correo electrónico"
+          placeholderTextColor="#9CA3AF"
           keyboardType="email-address"
           autoCapitalize="none"
           value={correo}
@@ -54,6 +55,7 @@ export default function LoginScreen() {
           <TextInput
             style={styles.passwordInput}
             placeholder="Contraseña"
+            placeholderTextColor="#9CA3AF"
             secureTextEntry={!verPassword}
             value={password}
             onChangeText={setPassword}
@@ -117,6 +119,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 16,
     fontSize: 16,
+    color: '#111827',
   },
   passwordContainer: {
     flexDirection: 'row',
@@ -129,6 +132,7 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: 16,
     fontSize: 16,
+    color: '#111827',
   },
   eyeIcon: {
     paddingHorizontal: 14,

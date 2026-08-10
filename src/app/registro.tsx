@@ -95,12 +95,14 @@ export default function RegistroScreen() {
         <TextInput
           style={styles.input}
           placeholder="Nombre completo"
+          placeholderTextColor="#9CA3AF"
           value={nombre}
           onChangeText={setNombre}
         />
         <TextInput
           style={styles.input}
           placeholder="Correo electrónico"
+          placeholderTextColor="#9CA3AF"
           keyboardType="email-address"
           autoCapitalize="none"
           value={correo}
@@ -109,6 +111,7 @@ export default function RegistroScreen() {
         <TextInput
           style={styles.input}
           placeholder="Teléfono"
+          placeholderTextColor="#9CA3AF"
           keyboardType="phone-pad"
           value={telefono}
           onChangeText={setTelefono}
@@ -118,6 +121,7 @@ export default function RegistroScreen() {
           <TextInput
             style={styles.input}
             placeholder="Placa del mototaxi (Ej: IQ-1234)"
+            placeholderTextColor="#9CA3AF"
             autoCapitalize="characters"
             value={placa}
             onChangeText={setPlaca}
@@ -128,6 +132,7 @@ export default function RegistroScreen() {
           <TextInput
             style={styles.passwordInput}
             placeholder="Contraseña"
+            placeholderTextColor="#9CA3AF"
             secureTextEntry={!verPassword}
             value={password}
             onChangeText={setPassword}
@@ -212,6 +217,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 16,
     fontSize: 16,
+    color: '#111827',
   },
   passwordContainer: {
     flexDirection: 'row',
@@ -224,6 +230,7 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: 16,
     fontSize: 16,
+    color: '#111827',
   },
   eyeIcon: {
     paddingHorizontal: 14,
