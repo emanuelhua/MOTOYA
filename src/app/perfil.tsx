@@ -128,7 +128,7 @@ export default function PerfilScreen() {
           <Text style={styles.menuArrow}>›</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.menuItem}>
+        <TouchableOpacity style={styles.menuItem} onPress={() => router.push('/ayuda')}>
           <Text style={styles.menuEmoji}>❓</Text>
           <Text style={styles.menuTexto}>Ayuda</Text>
           <Text style={styles.menuArrow}>›</Text>

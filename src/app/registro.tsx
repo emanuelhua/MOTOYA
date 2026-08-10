@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { doc, setDoc } from 'firebase/firestore';
@@ -11,6 +12,7 @@ export default function RegistroScreen() {
   const [correo, setCorreo] = useState('');
   const [telefono, setTelefono] = useState('');
   const [password, setPassword] = useState('');
+  const [verPassword, setVerPassword] = useState(false);
   const [rol, setRol] = useState<'pasajero' | 'conductor'>('pasajero');
   const [placa, setPlaca] = useState('');
   const [cargando, setCargando] = useState(false);
@@ -122,13 +124,25 @@ export default function RegistroScreen() {
           />
         )}
 
-        <TextInput
-          style={styles.input}
-          placeholder="Contraseña"
-          secureTextEntry
-          value={password}
-          onChangeText={setPassword}
-        />
+        <View style={styles.passwordContainer}>
+          <TextInput
+            style={styles.passwordInput}
+            placeholder="Contraseña"
+            secureTextEntry={!verPassword}
+            value={password}
+            onChangeText={setPassword}
+          />
+          <TouchableOpacity
+            style={styles.eyeIcon}
+            onPress={() => setVerPassword(!verPassword)}
+          >
+            <Ionicons
+              name={verPassword ? 'eye-off-outline' : 'eye-outline'}
+              size={22}
+              color="#6B7280"
+            />
+          </TouchableOpacity>
+        </View>
 
         <TouchableOpacity style={styles.btn} onPress={handleRegistro} disabled={cargando}>
           {cargando ? (
@@ -198,6 +212,21 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 16,
     fontSize: 16,
+  },
+  passwordContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#D1D5DB',
+    borderRadius: 12,
+  },
+  passwordInput: {
+    flex: 1,
+    padding: 16,
+    fontSize: 16,
+  },
+  eyeIcon: {
+    paddingHorizontal: 14,
   },
   btn: {
     backgroundColor: '#F97316',

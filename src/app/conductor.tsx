@@ -1,3 +1,4 @@
+import * as Location from 'expo-location';
 import { useRouter } from 'expo-router';
 import { onAuthStateChanged } from 'firebase/auth';
 import {
@@ -9,7 +10,7 @@ import {
   updateDoc,
   where,
 } from 'firebase/firestore';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Linking, StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native';
 import { auth, db } from '../firebaseConfig';
 
@@ -33,6 +34,7 @@ export default function ConductorScreen() {
   const [viaje, setViaje] = useState<ViajeSolicitud | null>(null);
   const [procesando, setProcesando] = useState(false);
   const [uid, setUid] = useState<string | null>(null);
+  const watchSubscription = useRef<Location.LocationSubscription | null>(null);
 
   useEffect(() => {
     const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
@@ -73,6 +75,43 @@ export default function ConductorScreen() {
 
     return () => unsubscribe();
   }, [uid]);
+
+  // Mientras el viaje esta en curso, comparte la ubicacion real del conductor cada pocos segundos
+  useEffect(() => {
+    const iniciarSeguimiento = async () => {
+      if (!viaje || viaje.estado !== 'en_curso') return;
+
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') return;
+
+      watchSubscription.current = await Location.watchPositionAsync(
+        {
+          accuracy: Location.Accuracy.High,
+          timeInterval: 5000,
+          distanceInterval: 10,
+        },
+        async (posicion) => {
+          try {
+            await updateDoc(doc(db, 'viajes', viaje.id), {
+              conductorLat: posicion.coords.latitude,
+              conductorLng: posicion.coords.longitude,
+            });
+          } catch (err) {
+            console.log('Error actualizando ubicacion del conductor:', err);
+          }
+        }
+      );
+    };
+
+    iniciarSeguimiento();
+
+    return () => {
+      if (watchSubscription.current) {
+        watchSubscription.current.remove();
+        watchSubscription.current = null;
+      }
+    };
+  }, [viaje?.id, viaje?.estado]);
 
   const toggleDisponible = async (valor: boolean) => {
     if (!uid) return;
@@ -164,7 +203,7 @@ export default function ConductorScreen() {
           {viaje?.estado === 'pendiente'
             ? '🔔 Nueva solicitud'
             : viaje?.estado === 'en_curso'
-            ? '🚕 En viaje'
+            ? '🚕 En viaje - compartiendo ubicación'
             : disponible
             ? '🟢 En línea - visible para pasajeros'
             : '🔴 Fuera de línea'}
@@ -216,6 +255,7 @@ export default function ConductorScreen() {
           )}
           <Text style={styles.solicitudInfo}>Destino: {viaje.destino}</Text>
           <Text style={styles.solicitudInfo}>Pago: S/ {viaje.tarifa.toFixed(2)}</Text>
+          <Text style={styles.trackingTexto}>📡 Tu ubicacion se esta compartiendo con el pasajero</Text>
 
           <TouchableOpacity style={styles.btnFinalizar} onPress={handleFinalizarViaje} disabled={procesando}>
             {procesando ? (
@@ -298,6 +338,12 @@ const styles = StyleSheet.create({
   solicitudInfo: {
     fontSize: 15,
     color: '#374151',
+  },
+  trackingTexto: {
+    fontSize: 13,
+    color: '#16A34A',
+    fontWeight: '600',
+    marginTop: 4,
   },
   linkMapa: {
     color: '#2563EB',

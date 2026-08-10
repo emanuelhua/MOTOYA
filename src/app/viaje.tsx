@@ -3,6 +3,7 @@ import { doc, onSnapshot, updateDoc } from 'firebase/firestore';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { db } from '../firebaseConfig';
+import { calcularDistanciaMetros } from '../utils/calcularDistancia';
 
 interface Viaje {
   conductorNombre: string;
@@ -11,12 +12,19 @@ interface Viaje {
   destino: string;
   tarifa: number;
   estado: string;
+  origenLat: number | null;
+  origenLng: number | null;
+  conductorLat?: number;
+  conductorLng?: number;
 }
+
+const DISTANCIA_LLEGADA_METROS = 100;
 
 export default function ViajeScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
   const [viaje, setViaje] = useState<Viaje | null>(null);
+  const [distancia, setDistancia] = useState<number | null>(null);
   const [cargando, setCargando] = useState(true);
   const [finalizando, setFinalizando] = useState(false);
 
@@ -25,7 +33,23 @@ export default function ViajeScreen() {
 
     const unsubscribe = onSnapshot(doc(db, 'viajes', id), (snapshot) => {
       if (snapshot.exists()) {
-        setViaje(snapshot.data() as Viaje);
+        const data = snapshot.data() as Viaje;
+        setViaje(data);
+
+        if (
+          data.origenLat &&
+          data.origenLng &&
+          data.conductorLat &&
+          data.conductorLng
+        ) {
+          const dist = calcularDistanciaMetros(
+            data.origenLat,
+            data.origenLng,
+            data.conductorLat,
+            data.conductorLng
+          );
+          setDistancia(dist);
+        }
       }
       setCargando(false);
     });
@@ -89,12 +113,21 @@ export default function ViajeScreen() {
     .slice(0, 2)
     .toUpperCase();
 
+  const cerca = distancia !== null && distancia <= DISTANCIA_LLEGADA_METROS;
+
   return (
     <View style={styles.container}>
       <View style={styles.mapPlaceholder}>
-        <Text style={styles.mapEmoji}>🛺</Text>
-        <Text style={styles.mapText}>Tu conductor va en camino</Text>
+        <Text style={styles.mapEmoji}>{cerca ? '📍' : '🛺'}</Text>
+        <Text style={styles.mapText}>
+          {cerca ? '¡Tu conductor ha llegado!' : 'Tu conductor va en camino'}
+        </Text>
         <Text style={styles.mapSubtext}>Destino: {viaje.destino}</Text>
+        {distancia !== null && (
+          <Text style={[styles.distanciaTexto, cerca && styles.distanciaTextoCerca]}>
+            {cerca ? '🟢 A menos de 100 metros' : `📏 A ${distancia} metros de ti`}
+          </Text>
+        )}
       </View>
 
       <View style={styles.bottomCard}>
@@ -164,6 +197,15 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#F97316',
     fontWeight: '600',
+  },
+  distanciaTexto: {
+    fontSize: 15,
+    color: '#6B7280',
+    fontWeight: '600',
+    marginTop: 4,
+  },
+  distanciaTextoCerca: {
+    color: '#16A34A',
   },
   bottomCard: {
     backgroundColor: '#FFFFFF',

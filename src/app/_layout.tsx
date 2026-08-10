@@ -16,6 +16,8 @@ export default function RootLayout() {
       <Stack.Screen name="splash" />
       <Stack.Screen name="notificaciones" />
       <Stack.Screen name="editar-perfil" />
+      <Stack.Screen name="ayuda" />
+      <Stack.Screen name="recuperar" />
     </Stack>
   );
 }
